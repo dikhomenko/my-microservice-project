@@ -40,99 +40,27 @@ The lessons must be deployed in order due to dependencies:
 - Deploy VPC, ECR, and S3 backend
 - Required by: Lesson 7, Lesson 8-9
 
-**2. Lesson 7 - EKS Cluster**
+**2. Lesson 7 - EKS Cluster** (Optional - independent from Lesson 8-9)
 
 - Deploy Kubernetes cluster and Django application
-- Required by: Lesson 8-9 (for cluster reference)
+- Standalone lesson for learning EKS
 
 **3. Lesson 8-9 - CI/CD Pipeline**
 
 - Deploy Jenkins and Argo CD for automated deployments
+- **Only requires Lesson 5** (VPC, ECR)
+- Creates its own EKS cluster (lesson-8-9-eks)
 - Self-contained EKS setup (no lesson-7 modifications needed)
 
 ---
-
-## Lesson 7 - EKS Kubernetes Cluster
 
 ### Prerequisites
 
 ### Phase 1: Deploy EKS Infrastructure
 
-1. **Navigate to lesson-7**:
-
-   ```bash
-   cd lesson-7
-   ```
-
-2. **Initialize Terraform**:
-
-   ```bash
-   terraform init
-   ```
-
-3. **Deploy EKS cluster**:
-   ```bash
-   terraform plan
-   terraform apply
-   ```
-
 ### Phase 2: Configure kubectl
 
-1. **Update kubeconfig**:
-
-   ```bash
-   aws eks update-kubeconfig --region us-west-2 --name lesson-7-eks
-   ```
-
-2. **Verify cluster access**:
-   ```bash
-   kubectl get nodes
-   ```
-
 ### Phase 3: Deploy Django Application
-
-1. **Update ECR repository URL** in `charts/django-app/values.yaml`:
-
-   - Replace `ACCOUNT_ID` : `2513-4250-3781` with your AWS account ID
-   - Ensure image `IMAGE_NAME` : `dina_django_project_web:latest` exists in ECR
-
-2. **Install Helm chart**:
-
-   ```bash
-   helm install django-app ./charts/django-app
-   ```
-
-3. **Get LoadBalancer URL**:
-   ```bash
-   kubectl get service django-app
-   ```
-
-## Configuration
-
-### EKS Cluster
-
-- **Instance Type**: t3.small (free tier eligible)
-- **Node Group**: 2-4 nodes with autoscaling
-- **Network**: Uses lesson-5 VPC private subnets
-
-### Django Application
-
-- **Replicas**: 2 (minimum) to 6 (maximum)
-- **Autoscaling**: Based on 70% CPU utilization
-- **Service**: LoadBalancer for external access
-- **Environment**: ConfigMap with database and application settings
-
-## Cleanup
-
-```bash
-# Remove Django application
-helm uninstall django-app
-
-# Destroy EKS infrastructure
-terraform destroy
-```
-
-**Note**: Lesson-5 infrastructure (VPC, ECR) remains unchanged.
 
 ---
 
@@ -160,13 +88,15 @@ Argo CD Detects Changes → Sync to EKS
 
 ### Prerequisites
 
-- **Lesson 5** - VPC and ECR infrastructure deployed
-- **Lesson 7** - EKS cluster deployed
-- AWS CLI configured
+- **Lesson 5** - VPC and ECR infrastructure deployed (REQUIRED)
+- AWS CLI configured with appropriate credentials
 - kubectl and Helm installed
 - Git repository set up (GitHub/GitLab)
 
-**Note**: This lesson is **self-contained** and does NOT modify lesson-7.
+**Important Notes**:
+
+- Lesson-7 is **NOT required** - Lesson 8-9 creates its own EKS cluster
+- This lesson is **self-contained** and creates `lesson-8-9-eks` cluster
 
 ### Step 1: Update Git Repository URL
 
@@ -193,11 +123,12 @@ terraform apply
 
 This deploys:
 
-- OIDC provider for EKS (IRSA support)
-- EBS CSI driver for persistent volumes
-- Jenkins with Kaniko pod template
-- Argo CD with auto-sync enabled
-- Django application monitoring
+- **EKS Cluster**: lesson-8-9-eks (new cluster, independent from lesson-7)
+- **OIDC Provider**: For IRSA support
+- **EBS CSI Driver**: For persistent volumes
+- **Jenkins**: With Kaniko pod template
+- **Argo CD**: With auto-sync enabled
+- **Django Application**: Monitoring via Argo CD
 
 ### Step 3: Access Jenkins
 

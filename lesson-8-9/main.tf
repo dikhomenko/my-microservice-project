@@ -1,5 +1,6 @@
 # Main Terraform configuration for lesson-8-9 (Jenkins + Argo CD)
-# Reuses infrastructure from lesson-5 (VPC, ECR) and lesson-7 (EKS)
+# Reuses infrastructure from lesson-5 (VPC, ECR)
+# Creates its own EKS cluster (does NOT depend on lesson-7)
 
 terraform {
   required_version = ">= 1.0"
@@ -93,7 +94,8 @@ data "terraform_remote_state" "lesson5" {
   }
 }
 
-# EKS Module (copy from lesson-7 + EBS CSI driver)
+# EKS Module (complete cluster with OIDC provider and EBS CSI driver)
+# This is a full EKS cluster module copied from lesson-7 and enhanced
 module "eks" {
   source = "./modules/eks"
   
