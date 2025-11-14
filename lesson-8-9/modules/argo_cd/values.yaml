@@ -1,0 +1,53 @@
+# Argo CD Helm chart values
+
+# Global configuration
+global:
+  domain: argocd.local
+
+# Server configuration
+server:
+  service:
+    type: LoadBalancer
+
+  # Enable insecure mode (disable TLS)
+  extraArgs:
+    - --insecure
+
+# Controller configuration
+controller:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# Repo server configuration
+repoServer:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Redis configuration
+redis:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Configs
+configs:
+  # Repository credentials
+  repositories: {}
+
+  # Enable auto-sync by default
+  params:
+    server.insecure: true
