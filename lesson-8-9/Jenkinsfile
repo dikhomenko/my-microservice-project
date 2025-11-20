@@ -1,0 +1,122 @@
+pipeline {
+    agent {
+        kubernetes {
+            label 'kaniko'
+        }
+    }
+    
+    environment {
+        // Get credentials from Jenkins
+        ECR_REPOSITORY = credentials('ecr-repository-url')
+        AWS_REGION = credentials('aws-region')
+        AWS_ACCOUNT_ID = credentials('aws-account-id')
+        GIT_REPO_URL = credentials('git-repo-url')
+        
+        // Build configuration
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        APP_NAME = "dina_django_project"
+        DOCKERFILE_PATH = "lesson-4/dina_django_project/app"
+        HELM_VALUES_PATH = "lesson-8-9/charts/django-app/values.yaml"
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                container('git') {
+                    script {
+                        echo "Checking out code from ${GIT_REPO_URL}"
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: '*/main']],
+                            userRemoteConfigs: [[url: "${GIT_REPO_URL}"]]
+                        ])
+                    }
+                }
+            }
+        }
+        
+        stage('Build and Push Docker Image') {
+            steps {
+                container('kaniko') {
+                    script {
+                        echo "Building Docker image with tag: ${IMAGE_TAG}"
+                        
+                        // Build and push using Kaniko
+                        sh """
+                            /kaniko/executor \
+                                --context=${DOCKERFILE_PATH} \
+                                --dockerfile=${DOCKERFILE_PATH}/Dockerfile \
+                                --destination=${ECR_REPOSITORY}:${IMAGE_TAG} \
+                                --destination=${ECR_REPOSITORY}:latest \
+                                --cache=true \
+                                --cache-ttl=24h
+                        """
+                        
+                        echo "Successfully built and pushed image: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+        
+        stage('Update Helm Chart') {
+            steps {
+                container('git') {
+                    script {
+                        echo "Updating Helm values.yaml with new image tag: ${IMAGE_TAG}"
+                        
+                        // Update the image tag in values.yaml
+                        sh """
+                            sed -i 's|tag: ".*"|tag: "${IMAGE_TAG}"|g' ${HELM_VALUES_PATH}
+                            
+                            # Verify the change
+                            echo "Updated values.yaml:"
+                            grep -A 2 "image:" ${HELM_VALUES_PATH}
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Commit and Push Changes') {
+            steps {
+                container('git') {
+                    script {
+                        echo "Committing and pushing changes to Git"
+                        
+                        sh """
+                            # Configure git
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@ci.local"
+                            
+                            # Add the changed file
+                            git add ${HELM_VALUES_PATH}
+                            
+                            # Commit the change
+                            git commit -m "Update Django app image tag to ${IMAGE_TAG} [ci skip]"
+                            
+                            # Push to main branch
+                            git push origin main
+                        """
+                        
+                        echo "Successfully pushed changes to repository"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+            echo "Image: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+            echo "Argo CD will automatically sync the changes to the cluster."
+        }
+        failure {
+            echo "Pipeline failed! Check the logs for details."
+        }
+        always {
+            echo "Cleaning up workspace..."
+            cleanWs()
+        }
+    }
+}

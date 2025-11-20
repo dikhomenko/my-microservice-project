@@ -1,0 +1,7 @@
+# Values for Argo CD Application chart
+
+gitRepoUrl: "https://github.com/dikhomenko/my-microservice-project.git"
+gitTargetRevision: "main"
+chartPath: "lesson-8-9/charts/django-app"
+appNamespace: "default"
+argocdNamespace: "argocd"
