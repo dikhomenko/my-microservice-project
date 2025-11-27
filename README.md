@@ -23,17 +23,27 @@ This repository contains a complete project implementing infrastructure as code,
 - **IRSA**: Secure AWS authentication for Kubernetes service accounts
 - **Automated Pipeline**: Full automation from code commit to production deployment
 
+### Lesson 10 - Universal RDS/Aurora Database Module
+
+- **Universal Database Module**: Single module for both RDS and Aurora
+- **Conditional Logic**: Switch between RDS and Aurora with one flag
+- **Complete Infrastructure**: VPC, EKS, ECR, Jenkins, Argo CD, and Database
+- **Production Ready**: High availability, backups, monitoring, security
+- **Flexible Configuration**: Multiple engines (PostgreSQL, MySQL, MariaDB), custom parameters
+
 ## Quick Start
 
 ### Prerequisites
 
 - **AWS CLI**: Configured with appropriate credentials
+- **Terraform**: >= 1.0 installed
 - **kubectl**: Kubernetes command line tool
 - **Helm**: Kubernetes package manager
+- **Git**: Version control
 
 ### Deployment Sequence
 
-The lessons must be deployed in order due to dependencies:
+The lessons can be deployed independently or in sequence:
 
 **1. Lesson 5 - Foundation Infrastructure**
 
@@ -52,150 +62,264 @@ The lessons must be deployed in order due to dependencies:
 - Creates its own EKS cluster (lesson-8-9-eks)
 - Self-contained EKS setup (no lesson-7 modifications needed)
 
----
+**4. Lesson 10 - Universal Database Infrastructure** (Independent)
 
-### Prerequisites
-
-### Phase 1: Deploy EKS Infrastructure
-
-### Phase 2: Configure kubectl
-
-### Phase 3: Deploy Django Application
+- Complete infrastructure with RDS or Aurora database
+- **Self-contained**: Creates own VPC, EKS, ECR, Jenkins, Argo CD
+- Switch between RDS and Aurora with single flag
+- Production-ready database with HA, backups, monitoring
+- Can be deployed independently or after Lesson 5
 
 ---
 
-## Lesson 8-9 - Complete CI/CD Pipeline
+## Lesson 10 - Universal RDS/Aurora Database
 
 ### Overview
 
-Implements a complete CI/CD pipeline with:
-
-- **Jenkins** - Builds Docker images using Kaniko and pushes to ECR
-- **Argo CD** - GitOps-based continuous deployment
-- **Automated Workflow** - Code → Build → Deploy pipeline
-
-### Architecture
-
-```
-Developer Push → GitHub → Jenkins Pipeline → Build Image (Kaniko)
-->
-Push to ECR + Update Helm Chart
-->
-Commit & Push to GitHub
-->
-Argo CD Detects Changes → Sync to EKS
-```
-
-### Prerequisites
-
-- **Lesson 5** - VPC and ECR infrastructure deployed (REQUIRED)
-- AWS CLI configured with appropriate credentials
-- kubectl and Helm installed
-- Git repository set up (GitHub/GitLab)
-
-**Important Notes**:
-
-- Lesson-7 is **NOT required** - Lesson 8-9 creates its own EKS cluster
-- This lesson is **self-contained** and creates `lesson-8-9-eks` cluster
-
-### Step 1: Update Git Repository URL
-
-Edit `lesson-8-9/main.tf` and update:
-
-```terraform
-variable "git_repo_url" {
-  default = "https://github.com/dikhomenko/my-microservice-project.git"
-}
-```
-
-### Step 2: Deploy Infrastructure
-
-```bash
-# Navigate to lesson-8-9
-cd lesson-8-9
-
-# Initialize Terraform
-terraform init
-
-# Deploy Jenkins and Argo CD
-terraform apply
-```
-
-This deploys:
-
-- **EKS Cluster**: lesson-8-9-eks (new cluster, independent from lesson-7)
-- **OIDC Provider**: For IRSA support
-- **EBS CSI Driver**: For persistent volumes
-- **Jenkins**: With Kaniko pod template
-- **Argo CD**: With auto-sync enabled
-- **Django Application**: Monitoring via Argo CD
-
-### Step 3: Access Jenkins
-
-```bash
-# Get Jenkins URL
-terraform output jenkins_url
-
-# Get admin password
-terraform output -raw jenkins_admin_password
-```
-
-Login to Jenkins:
-
-- **URL**: Output from above
-- **Username**: `admin`
-- **Password**: Output from above
-
-### Step 4: Configure Jenkins Pipeline
-
-1. **Create Pipeline**:
-
-   - Script Path: `lesson-8-9/Jenkinsfile`
-
-2. **Add Git Credentials**
-
-### Step 5: Access Argo CD
-
-```bash
-# Get Argo CD URL
-terraform output argocd_server_url
-
-# Get admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
-```
-
-Login to Argo CD:
-
-- **URL**: Output from above
-- **Username**: `admin`
-- **Password**: Output from kubectl command
-
-### Step 6: Run the Pipeline
-
-### Step 7: Verify Deployment
-
-After Jenkins completes:
-
-1. **Configure kubectl for lesson-8-9 cluster**:
-
-   ```bash
-   aws eks update-kubeconfig --region us-west-2 --name lesson-8-9-eks
-   ```
-
-2. **Check Git**: Verify `lesson-8-9/charts/django-app/values.yaml` has new image tag
-
-3. **Check Argo CD**: Application should auto-sync within 3 minutes
-
-4. **Check Kubernetes**:
-   ```bash
-   kubectl get pods -n default
-   kubectl describe pod <pod-name> | grep Image
-   ```
+Production-ready infrastructure demonstrating a universal database module that can deploy either regular RDS instances or Aurora clusters using conditional Terraform logic.
 
 ### Key Features
 
-#### Kaniko (Secure Docker Builds)
+- **Single module** for both RDS and Aurora
+- **One-flag switch** between database types (`use_aurora`)
+- **Production security**: VPC isolation, encryption, security groups
+- **High availability**: Multi-AZ RDS, Aurora clusters with readers
+- **Full flexibility**: Multiple engines, custom parameters, autoscaling
+- **Complete stack**: Includes VPC, EKS, Jenkins, Argo CD
 
-#### IRSA (IAM Roles for Service Accounts)
+### Quick Deploy
 
-#### GitOps with Argo CD
+```bash
+cd lesson-10
+
+# Initialize
+terraform init
+
+# Deploy with PostgreSQL RDS
+terraform apply
+
+# Or switch to Aurora in main.tf
+# use_aurora = true
+# Then: terraform apply
+```
+
+### Database Types Supported
+
+**Regular RDS:**
+
+- PostgreSQL (versions 12-16)
+- MySQL (versions 5.7, 8.0)
+- MariaDB (versions 10.x)
+
+**Aurora:**
+
+- Aurora PostgreSQL (versions 13-15)
+- Aurora MySQL (versions 5.7, 8.0)
+- Aurora Serverless v2
+
+### Configuration Examples
+
+#### PostgreSQL RDS with Multi-AZ
+
+```terraform
+module "rds" {
+  source = "./modules/rds"
+
+  use_aurora     = false
+  engine         = "postgres"
+  engine_version = "15.4"
+  instance_class = "db.t3.small"
+  multi_az       = true
+
+  allocated_storage = 100
+
+  parameters = {
+    max_connections = "200"
+    shared_buffers  = "256MB"
+  }
+}
+```
+
+#### Aurora PostgreSQL Cluster
+
+```terraform
+module "rds" {
+  source = "./modules/rds"
+
+  use_aurora            = true
+  engine                = "postgres"
+  aurora_engine_version = "15.4"
+  aurora_instance_count = 3  # 1 writer + 2 readers
+  aurora_instance_class = "db.t3.medium"
+
+  parameters = {
+    max_connections = "300"
+  }
+}
+```
+
+#### Aurora Serverless v2
+
+```terraform
+module "rds" {
+  source = "./modules/rds"
+
+  use_aurora         = true
+  aurora_instance_class = "db.serverless"
+
+  aurora_serverless_v2_scaling = {
+    min_capacity = 0.5
+    max_capacity = 4.0
+  }
+}
+```
+
+### Access Database
+
+```bash
+# Get connection info
+terraform output db_endpoint
+terraform output db_connection_string
+
+# Connect with psql
+psql -h $(terraform output -raw db_endpoint | cut -d: -f1) -U dbadmin -d appdb
+
+# Or MySQL
+mysql -h $(terraform output -raw db_endpoint | cut -d: -f1) -u dbadmin -p appdb
+```
+
+### Module Features
+
+**Automatic Resource Creation:**
+
+- DB Subnet Group (for both RDS and Aurora)
+- Security Group with configurable rules
+- Parameter Group with custom settings
+
+**High Availability:**
+
+- Multi-AZ deployment for RDS
+- Aurora clusters with multiple instances
+- Automated failover
+
+**Backup & Recovery:**
+
+- Automated daily backups
+- Configurable retention period
+- Point-in-time recovery
+- Final snapshot on deletion
+
+**Monitoring:**
+
+- CloudWatch Logs export
+- Performance Insights
+- Enhanced monitoring
+
+**Security:**
+
+- Storage encryption at rest
+- VPC isolation in private subnets
+- Security group access control
+- IAM authentication ready
+
+### Switching Database Types
+
+To switch from RDS to Aurora (or vice versa):
+
+1. **Create snapshot** of existing database:
+
+   ```bash
+   aws rds create-db-snapshot \
+     --db-instance-identifier lesson-10-db \
+     --db-snapshot-identifier before-aurora-migration
+   ```
+
+2. **Update configuration** in `main.tf`:
+
+   ```terraform
+   module "rds" {
+     use_aurora = true  # Changed from false
+     # ... rest of config
+   }
+   ```
+
+3. **Apply changes**:
+   ```bash
+   terraform apply
+   ```
+
+**Warning**: This recreates the database. Use snapshots to preserve data.
+
+### Scaling Options
+
+**Vertical Scaling (Change instance size):**
+
+```terraform
+instance_class = "db.t3.large"  # Was db.t3.small
+```
+
+**Horizontal Scaling (Aurora readers):**
+
+```terraform
+aurora_instance_count = 5  # Add more read replicas
+```
+
+**Storage Autoscaling (RDS):**
+
+```terraform
+allocated_storage     = 100
+max_allocated_storage = 500  # Auto-scale up to 500GB
+```
+
+**Serverless Autoscaling (Aurora):**
+
+```terraform
+aurora_serverless_v2_scaling = {
+  min_capacity = 0.5  # Scale down to 0.5 ACUs
+  max_capacity = 16.0 # Scale up to 16 ACUs
+}
+```
+
+### Common Parameters
+
+**PostgreSQL:**
+
+```terraform
+parameters = {
+  max_connections             = "200"
+  shared_buffers             = "256MB"
+  work_mem                   = "8MB"
+  maintenance_work_mem       = "128MB"
+  effective_cache_size       = "1GB"
+  random_page_cost           = "1.1"
+  log_statement              = "ddl"
+  log_min_duration_statement = "1000"
+}
+```
+
+**MySQL:**
+
+```terraform
+parameters = {
+  max_connections        = "200"
+  innodb_buffer_pool_size = "256M"
+  slow_query_log         = "1"
+  long_query_time        = "2"
+  character_set_server   = "utf8mb4"
+  collation_server       = "utf8mb4_unicode_ci"
+}
+```
+
+### Cleanup
+
+```bash
+# Destroy all resources
+terraform destroy
+```
+
+For production, enable deletion protection:
+
+```terraform
+deletion_protection = true
+skip_final_snapshot = false
+```
