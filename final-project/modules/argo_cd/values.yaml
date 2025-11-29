@@ -1,0 +1,99 @@
+# Argo CD Helm Chart Values
+
+# Global configuration
+global:
+  domain: argocd.local
+
+# Server configuration
+server:
+  service:
+    type: LoadBalancer
+
+  # Enable insecure mode (disable TLS) for internal access
+  extraArgs:
+    - --insecure
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Controller configuration
+controller:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # Enable metrics for Prometheus
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+# Repo server configuration
+repoServer:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Redis configuration
+redis:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Application Set Controller
+applicationSet:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Notifications controller
+notifications:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Configs
+configs:
+  # Enable auto-sync by default
+  params:
+    server.insecure: true
+    application.instanceLabelKey: argocd.argoproj.io/instance
+
+  # Configure repositories
+  repositories: {}
+
+  # Resource customizations
+  cm:
+    resource.customizations: |
+      networking.k8s.io/Ingress:
+        health.lua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs

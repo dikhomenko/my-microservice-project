@@ -1,0 +1,80 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and update with your values
+# NEVER commit terraform.tfvars to version control as it may contain sensitive data
+
+# ============================================================================
+# General Configuration
+# ============================================================================
+aws_region   = "us-west-2"
+project_name = "final-project"
+environment  = "production"
+
+tags = {
+  Project     = "final-project"
+  Environment = "production"
+  ManagedBy   = "Terraform"
+  Team        = "DevOps"
+}
+
+# ============================================================================
+# VPC Configuration
+# ============================================================================
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-west-2a", "us-west-2b", "us-west-2c"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24"]
+
+# ============================================================================
+# EKS Configuration
+# ============================================================================
+eks_cluster_version     = "1.28"
+eks_node_instance_types = ["t3.medium"]
+eks_node_desired_size   = 3
+eks_node_min_size       = 2
+eks_node_max_size       = 6
+
+# ============================================================================
+# Database Configuration
+# ============================================================================
+db_engine            = "postgres"
+db_engine_version    = "15.4"
+db_instance_class    = "db.t3.micro"
+db_allocated_storage = 20
+db_name              = "appdb"
+db_username          = "dbadmin"
+db_password          = "YourSecurePassword123!"  # Change this!
+db_multi_az          = true
+use_aurora           = false
+
+# ============================================================================
+# ECR Configuration
+# ============================================================================
+ecr_repository_name = "django-app"
+
+# ============================================================================
+# Jenkins Configuration
+# ============================================================================
+jenkins_admin_password = "YourJenkinsPassword123!"  # Change this!
+jenkins_namespace      = "jenkins"
+
+# ============================================================================
+# Argo CD Configuration
+# ============================================================================
+argocd_namespace = "argocd"
+git_repo_url     = "https://github.com/your-username/your-repo.git"
+git_branch       = "main"
+
+# ============================================================================
+# Monitoring Configuration
+# ============================================================================
+monitoring_namespace      = "monitoring"
+grafana_admin_password    = "YourGrafanaPassword123!"  # Change this!
+prometheus_retention_days = 15
+prometheus_storage_size   = "50Gi"
+grafana_storage_size      = "10Gi"
+
+# ============================================================================
+# Application Configuration
+# ============================================================================
+app_namespace = "default"
+app_replicas  = 2

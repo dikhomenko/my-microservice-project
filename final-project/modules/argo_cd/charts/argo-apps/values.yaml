@@ -1,0 +1,14 @@
+# Values for Argo CD Application chart
+
+gitRepoUrl: "https://github.com/dikhomenko/my-microservice-project.git"
+gitTargetRevision: "main"
+chartPath: "final-project/charts/django-app"
+appNamespace: "default"
+argocdNamespace: "argocd"
+
+# Database connection
+dbHost: ""
+dbPort: 5432
+dbName: "appdb"
+dbUsername: ""
+dbPassword: ""

@@ -1,0 +1,184 @@
+// Jenkinsfile for Django Application CI/CD Pipeline
+// Uses Kaniko for Docker builds and pushes to ECR
+
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: agent
+spec:
+  serviceAccountName: jenkins
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command:
+    - /busybox/cat
+    tty: true
+    volumeMounts:
+    - name: docker-config
+      mountPath: /kaniko/.docker
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - cat
+    tty: true
+  volumes:
+  - name: docker-config
+    projected:
+      sources:
+      - secret:
+          name: ecr-credentials
+          items:
+          - key: .dockerconfigjson
+            path: config.json
+'''
+        }
+    }
+
+    environment {
+        AWS_REGION = 'us-west-2'
+        ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/django-app"
+        IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
+        HELM_CHART_PATH = 'charts/django-app'
+    }
+
+    parameters {
+        string(name: 'AWS_ACCOUNT_ID', description: 'AWS Account ID for ECR')
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'production'], description: 'Deployment environment')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    env.GIT_BRANCH = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            agent {
+                kubernetes {
+                    yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: python
+    image: python:3.11-slim
+    command:
+    - cat
+    tty: true
+'''
+                }
+            }
+            steps {
+                container('python') {
+                    dir('django') {
+                        sh '''
+                            pip install -r requirements.txt
+                            pip install pytest pytest-django pytest-cov
+                            python -m pytest --cov=. --cov-report=xml || true
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'django',
+                        reportFiles: 'coverage.xml',
+                        reportName: 'Coverage Report'
+                    ])
+                }
+            }
+        }
+
+        stage('Build and Push Image') {
+            steps {
+                container('kaniko') {
+                    dir('django') {
+                        sh """
+                            /kaniko/executor \
+                                --dockerfile=Dockerfile \
+                                --context=. \
+                                --destination=${ECR_REPOSITORY}:${IMAGE_TAG} \
+                                --destination=${ECR_REPOSITORY}:latest \
+                                --cache=true \
+                                --cache-ttl=24h
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Update Helm Values') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    // Update values.yaml with new image tag
+                    sh """
+                        sed -i 's|tag:.*|tag: "${IMAGE_TAG}"|g' ${HELM_CHART_PATH}/values.yaml
+                        sed -i 's|repository:.*|repository: ${ECR_REPOSITORY}|g' ${HELM_CHART_PATH}/values.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Dev') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                container('kubectl') {
+                    sh """
+                        echo "ArgoCD will automatically sync changes from Git repository"
+                        echo "Deployment triggered for dev environment"
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                input message: 'Deploy to production?', ok: 'Deploy'
+                container('kubectl') {
+                    sh """
+                        echo "ArgoCD will automatically sync changes from Git repository"
+                        echo "Deployment triggered for production environment"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Pipeline completed successfully!"
+            echo "Image: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+    }
+}

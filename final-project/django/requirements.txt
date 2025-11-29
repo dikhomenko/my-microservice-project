@@ -1,0 +1,29 @@
+# Django Application Requirements
+
+# Core Django
+Django>=4.2,<5.0
+gunicorn>=21.0.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Django REST Framework (for API)
+djangorestframework>=3.14.0
+
+# Health checks
+django-health-check>=3.17.0
+
+# Prometheus metrics
+django-prometheus>=2.3.1
+
+# Security
+django-cors-headers>=4.3.0
+
+# Logging
+python-json-logger>=2.0.7
+
+# Static files
+whitenoise>=6.6.0

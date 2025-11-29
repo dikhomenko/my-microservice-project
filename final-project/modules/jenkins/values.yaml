@@ -1,0 +1,129 @@
+# Jenkins Helm Chart Values with Kaniko Pod Template
+
+controller:
+  # Use the service account with IRSA for ECR access
+  serviceAccount:
+    create: false
+    name: ${service_account_name}
+
+  # Admin credentials
+  admin:
+    password: ${admin_password}
+
+  # Install required plugins
+  installPlugins:
+    - kubernetes:4029.v5712230ccb_f8
+    - workflow-aggregator:596.v8c21c963d92d
+    - git:5.2.1
+    - configuration-as-code:1743.v2a_37d0988a_85
+    - pipeline-stage-view:2.34
+    - docker-workflow:572.v950f58993843
+    - credentials-binding:642.v737c34dea_6c2
+    - pipeline-utility-steps:2.16.2
+    - prometheus:2.5.0
+    - metrics:4.2.18-442.v07cc6e9bf14d
+
+  # JCasC (Jenkins Configuration as Code)
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      cloud-config: |
+        jenkins:
+          clouds:
+            - kubernetes:
+                name: "kubernetes"
+                serverUrl: "https://kubernetes.default"
+                namespace: "jenkins"
+                jenkinsUrl: "http://jenkins:8080"
+                jenkinsTunnel: "jenkins-agent:50000"
+                containerCapStr: "10"
+                podLabels:
+                  - key: "jenkins/kaniko"
+                    value: "true"
+                templates:
+                  - name: "kaniko"
+                    label: "kaniko"
+                    nodeUsageMode: NORMAL
+                    serviceAccount: "${service_account_name}"
+                    containers:
+                      - name: "kaniko"
+                        image: "gcr.io/kaniko-project/executor:v1.19.0-debug"
+                        command: "/busybox/sleep"
+                        args: "99d"
+                        ttyEnabled: true
+                        workingDir: "/home/jenkins/agent"
+                        resourceRequestCpu: "500m"
+                        resourceRequestMemory: "1Gi"
+                        resourceLimitCpu: "1000m"
+                        resourceLimitMemory: "2Gi"
+                      - name: "git"
+                        image: "alpine/git:latest"
+                        command: "/bin/sh"
+                        args: "-c sleep 99d"
+                        ttyEnabled: true
+                        workingDir: "/home/jenkins/agent"
+                    volumes:
+                      - emptyDirVolume:
+                          memory: false
+                          mountPath: "/home/jenkins/agent"
+                    yamlMergeStrategy: "override"
+
+      credentials-config: |
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - string:
+                      scope: GLOBAL
+                      id: "ecr-repository-url"
+                      secret: "${ecr_repository_url}"
+                      description: "ECR Repository URL"
+                  - string:
+                      scope: GLOBAL
+                      id: "aws-region"
+                      secret: "${aws_region}"
+                      description: "AWS Region"
+                  - string:
+                      scope: GLOBAL
+                      id: "aws-account-id"
+                      secret: "${aws_account_id}"
+                      description: "AWS Account ID"
+                  - string:
+                      scope: GLOBAL
+                      id: "git-repo-url"
+                      secret: "${git_repo_url}"
+                      description: "Git Repository URL"
+
+  # Resources
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+
+# Agent configuration
+agent:
+  enabled: true
+  resources:
+    requests:
+      cpu: "256m"
+      memory: "256Mi"
+    limits:
+      cpu: "512m"
+      memory: "512Mi"
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: "gp2"
+  size: "20Gi"
+
+# Service configuration
+serviceType: LoadBalancer
+servicePort: 8080
